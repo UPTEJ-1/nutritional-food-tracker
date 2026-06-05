@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NutriTrack{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="{% if current_user.is_authenticated %}{{ url_for('dashboard') }}{% else %}{{ url_for('login') }}{% endif %}">NutriTrack</a>
+            </div>
+            <div class="navbar-menu">
+                {% if current_user.is_authenticated %}
+                    <ul class="navbar-nav">
+                        <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                        <li><a href="#">Log Food</a></li>
+                        <li><a href="#">History</a></li>
+                        <li><a href="#">Goals</a></li>
+                        <li><a href="#">Profile</a></li>
+                        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    </ul>
+                {% else %}
+                    <ul class="navbar-nav">
+                        <li><a href="{{ url_for('login') }}">Login</a></li>
+                        <li><a href="{{ url_for('register') }}">Register</a></li>
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer (optional) -->
+    <footer class="footer">
+        <p>&copy; 2026 NutriTrack. All rights reserved.</p>
+    </footer>
+</body>
+</html>

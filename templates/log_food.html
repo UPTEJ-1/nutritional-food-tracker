@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Log Food - NutriTrack{% endblock %}
+
+{% block content %}
+<div class="log-food-container">
+    <h1>Log Food</h1>
+
+    <form method="POST" action="{{ url_for('log_food') }}" class="log-food-form">
+        <div class="form-group">
+            <label for="food_id">Select Food</label>
+            <select id="food_id" name="food_id" required>
+                <option value="">-- Choose a food --</option>
+                {% for food in foods %}
+                    <option value="{{ food['id'] }}">{{ food['name'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="quantity_grams">Quantity (grams)</label>
+            <input type="number" id="quantity_grams" name="quantity_grams" min="1" max="2000" required>
+        </div>
+
+        <div class="form-group">
+            <label for="meal_type">Meal Type</label>
+            <select id="meal_type" name="meal_type" required>
+                <option value="">-- Select meal type --</option>
+                <option value="Breakfast">Breakfast</option>
+                <option value="Lunch">Lunch</option>
+                <option value="Dinner">Dinner</option>
+                <option value="Snack">Snack</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Log Food</button>
+    </form>
+
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+</div>
+{% endblock %}
