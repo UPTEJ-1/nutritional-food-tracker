@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NutriTrack{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="welcome-section">
+        <h1>Welcome, {{ username }}!</h1>
+    </div>
+
+    <!-- Daily Calories Summary -->
+    <div class="calories-summary">
+        <h2>{{ "{:,.0f}".format(total_calories) }} / {{ "{:,.0f}".format(goals.daily_calories) }} kcal</h2>
+    </div>
+
+    <!-- Log Food Button -->
+    <div class="action-buttons">
+        <a href="{{ url_for('log_food') }}" class="btn btn-primary btn-large">+ Log Food</a>
+    </div>
+
+    <!-- Macronutrient Progress Bars -->
+    <div class="macros-section">
+        <h3>Today's Macronutrients</h3>
+
+        <!-- Calories Progress Bar -->
+        <div class="macro-item">
+            <div class="macro-header">
+                <label>Calories</label>
+                <span class="macro-values">{{ "{:.0f}".format(total_calories) }} / {{ "{:.0f}".format(goals.daily_calories) }} ({{ progress.calories }}%)</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress.calories }}%"></div>
+            </div>
+        </div>
+
+        <!-- Protein Progress Bar -->
+        <div class="macro-item">
+            <div class="macro-header">
+                <label>Protein</label>
+                <span class="macro-values">{{ "{:.1f}".format(total_protein) }} / {{ "{:.1f}".format(goals.daily_protein) }}g ({{ progress.protein }}%)</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress.protein }}%"></div>
+            </div>
+        </div>
+
+        <!-- Carbs Progress Bar -->
+        <div class="macro-item">
+            <div class="macro-header">
+                <label>Carbs</label>
+                <span class="macro-values">{{ "{:.1f}".format(total_carbs) }} / {{ "{:.1f}".format(goals.daily_carbs) }}g ({{ progress.carbs }}%)</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress.carbs }}%"></div>
+            </div>
+        </div>
+
+        <!-- Fats Progress Bar -->
+        <div class="macro-item">
+            <div class="macro-header">
+                <label>Fats</label>
+                <span class="macro-values">{{ "{:.1f}".format(total_fats) }} / {{ "{:.1f}".format(goals.daily_fats) }}g ({{ progress.fats }}%)</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress.fats }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Food Log -->
+    <div class="food-log-section">
+        <h3>Today's Food Log</h3>
+
+        {% if today_foods %}
+            <div class="food-list">
+                {% for food in today_foods %}
+                    <div class="food-item">
+                        <div class="food-info">
+                            <div class="food-name">{{ food.name }}</div>
+                            <div class="food-details">
+                                <span class="quantity">{{ food.quantity_grams }}g</span>
+                                <span class="meal-type">{{ food.meal_type }}</span>
+                                <span class="calories">{{ "{:.0f}".format(food.calories) }} kcal</span>
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ url_for('delete_food_log', entry_id=food.id) }}" class="delete-form">
+                            <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Delete this food entry?')">Delete</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="no-foods">No foods logged today. <a href="{{ url_for('log_food') }}">Log your first meal!</a></p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .dashboard-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .welcome-section {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .welcome-section h1 {
+        font-size: 2rem;
+        color: #333;
+    }
+
+    .calories-summary {
+        text-align: center;
+        background: #f0f4f8;
+        padding: 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .calories-summary h2 {
+        font-size: 2.5rem;
+        color: #007bff;
+        margin: 0;
+    }
+
+    .action-buttons {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .btn-large {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+    }
+
+    .macros-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .macros-section h3 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .macro-item {
+        margin-bottom: 1.5rem;
+    }
+
+    .macro-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .macro-header label {
+        color: #333;
+    }
+
+    .macro-values {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .progress-bar {
+        height: 20px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        transition: width 0.3s ease;
+    }
+
+    .food-log-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .food-log-section h3 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .food-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .food-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+    }
+
+    .food-info {
+        flex: 1;
+    }
+
+    .food-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.3rem;
+    }
+
+    .food-details {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .food-details span {
+        background: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 3px;
+    }
+
+    .delete-form {
+        margin-left: 1rem;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0056b3;
+    }
+
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #c82333;
+    }
+
+    .btn-small {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .no-foods {
+        text-align: center;
+        color: #666;
+        padding: 2rem;
+    }
+
+    .no-foods a {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .no-foods a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
