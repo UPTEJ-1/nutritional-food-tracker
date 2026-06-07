@@ -417,6 +417,92 @@ def delete_food_log(entry_id):
     return redirect(url_for('dashboard'))
 
 
+# Goals route: GET shows form, POST updates user goals
+@app.route('/goals', methods=['GET', 'POST'])
+@login_required
+def goals():
+    """
+    Handles user nutritional goals management.
+    GET: Queries user's current goals and renders goals.html form.
+    POST: Validates input and updates or inserts user goals into the database.
+    Returns: render_template on GET, redirect to dashboard on successful POST with success message
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    if request.method == 'POST':
+        daily_calories = request.form.get('daily_calories')
+        daily_protein = request.form.get('daily_protein')
+        daily_carbs = request.form.get('daily_carbs')
+        daily_fats = request.form.get('daily_fats')
+
+        # Validate input
+        if not all([daily_calories, daily_protein, daily_carbs, daily_fats]):
+            flash('Please fill in all fields.', 'danger')
+            connection.close()
+            return redirect(url_for('goals'))
+
+        try:
+            daily_calories = float(daily_calories)
+            daily_protein = float(daily_protein)
+            daily_carbs = float(daily_carbs)
+            daily_fats = float(daily_fats)
+        except ValueError:
+            flash('Please enter valid numbers for all fields.', 'danger')
+            connection.close()
+            return redirect(url_for('goals'))
+
+        # Check if goals exist for user
+        cursor.execute('SELECT id FROM goals WHERE user_id = ?', (current_user.id,))
+        existing_goal = cursor.fetchone()
+
+        try:
+            if existing_goal:
+                # Update existing goals
+                cursor.execute('''
+                    UPDATE goals
+                    SET daily_calories = ?, daily_protein = ?, daily_carbs = ?, daily_fats = ?
+                    WHERE user_id = ?
+                ''', (daily_calories, daily_protein, daily_carbs, daily_fats, current_user.id))
+            else:
+                # Insert new goals
+                cursor.execute('''
+                    INSERT INTO goals (user_id, daily_calories, daily_protein, daily_carbs, daily_fats)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (current_user.id, daily_calories, daily_protein, daily_carbs, daily_fats))
+            connection.commit()
+            flash('Goals updated successfully!', 'success')
+            connection.close()
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            flash(f'Failed to update goals: {str(e)}', 'danger')
+            connection.close()
+            return redirect(url_for('goals'))
+
+    # GET request: fetch current goals
+    cursor.execute('SELECT daily_calories, daily_protein, daily_carbs, daily_fats FROM goals WHERE user_id = ?', (current_user.id,))
+    user_goals = cursor.fetchone()
+    connection.close()
+
+    # Use default values if no goals exist
+    if user_goals:
+        current_goals = {
+            'daily_calories': user_goals['daily_calories'],
+            'daily_protein': user_goals['daily_protein'],
+            'daily_carbs': user_goals['daily_carbs'],
+            'daily_fats': user_goals['daily_fats']
+        }
+    else:
+        current_goals = {
+            'daily_calories': 2000,
+            'daily_protein': 150,
+            'daily_carbs': 250,
+            'daily_fats': 65
+        }
+
+    return render_template('goals.html', current_goals=current_goals)
+
+
 # Run the app
 if __name__ == '__main__':
     app.run(debug=True)

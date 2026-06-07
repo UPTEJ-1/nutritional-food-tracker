@@ -17,9 +17,9 @@
                 {% if current_user.is_authenticated %}
                     <ul class="navbar-nav">
                         <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-                        <li><a href="#">Log Food</a></li>
+                        <li><a href="{{ url_for('log_food') }}">Log Food</a></li>
                         <li><a href="#">History</a></li>
-                        <li><a href="#">Goals</a></li>
+                        <li><a href="{{ url_for('goals') }}">Goals</a></li>
                         <li><a href="#">Profile</a></li>
                         <li><a href="{{ url_for('logout') }}">Logout</a></li>
                     </ul>
