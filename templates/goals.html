@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Set Goals - NutriTrack{% endblock %}
+
+{% block content %}
+<div class="goals-container">
+    <h1>Set Your Nutritional Goals</h1>
+    <p class="subtitle">Customize your daily nutritional targets to match your fitness goals.</p>
+
+    <form method="POST" action="{{ url_for('goals') }}" class="goals-form">
+        <div class="form-group">
+            <label for="daily_calories">Daily Calorie Goal (kcal)</label>
+            <input type="number" id="daily_calories" name="daily_calories" min="1000" max="10000" step="50"
+                   value="{{ current_goals.daily_calories }}" required>
+            <small>Typical range: 1500 - 3500 kcal</small>
+        </div>
+
+        <div class="form-group">
+            <label for="daily_protein">Daily Protein Goal (g)</label>
+            <input type="number" id="daily_protein" name="daily_protein" min="20" max="500" step="5"
+                   value="{{ current_goals.daily_protein }}" required>
+            <small>Typical range: 100 - 300g (0.8-2.2g per kg of body weight)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="daily_carbs">Daily Carbs Goal (g)</label>
+            <input type="number" id="daily_carbs" name="daily_carbs" min="50" max="1000" step="10"
+                   value="{{ current_goals.daily_carbs }}" required>
+            <small>Typical range: 150 - 400g (depends on activity level)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="daily_fats">Daily Fats Goal (g)</label>
+            <input type="number" id="daily_fats" name="daily_fats" min="20" max="500" step="5"
+                   value="{{ current_goals.daily_fats }}" required>
+            <small>Typical range: 50 - 150g (20-35% of daily calories)</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Goals</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+
+<style>
+    .goals-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .goals-container h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    .goals-form {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+
+    .form-group small {
+        display: block;
+        margin-top: 0.3rem;
+        color: #999;
+        font-size: 0.85rem;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        margin-right: 1rem;
+        margin-top: 1rem;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0056b3;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #545b62;
+    }
+</style>
+{% endblock %}
