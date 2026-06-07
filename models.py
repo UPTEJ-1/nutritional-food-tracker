@@ -20,17 +20,20 @@ class FoodEntry:
     methods to retrieve data in various formats for display and analysis.
 
     Attributes:
-        food_id (int): Unique identifier for the food in the database
+        food_id (int): Unique identifier for food in database
         food_name (str): Name of the food item
         quantity_grams (float): Quantity of food consumed in grams
-        meal_type (str): Type of meal (e.g., "Breakfast", "Lunch", "Snack")
+        meal_type (str): Type of meal (Breakfast, Lunch, Snack)
         calories (float): Total calories for this entry
         protein (float): Total protein in grams for this entry
         carbs (float): Total carbohydrates in grams for this entry
         fats (float): Total fats in grams for this entry
     """
 
-    def __init__(self, food_id, food_name, quantity_grams, meal_type, calories, protein, carbs, fats):
+    def __init__(
+        self, food_id, food_name, quantity_grams, meal_type,
+        calories, protein, carbs, fats
+    ):
         """
         Initializes a FoodEntry object with nutritional data.
 
@@ -59,15 +62,19 @@ class FoodEntry:
 
         Returns:
             str: Formatted string like "150g Chicken Breast - 248 kcal"
+                 format
         """
-        return f"{self.quantity_grams}g {self.food_name} - {self.calories:.0f} kcal"
+        return (
+            f"{self.quantity_grams}g {self.food_name} - "
+            f"{self.calories:.0f} kcal"
+        )
 
     def to_dict(self):
         """
         Converts the FoodEntry object to a dictionary.
 
         Returns:
-            dict: Dictionary containing all attributes of the food entry
+            dict: Dictionary containing all attributes of the entry
         """
         return {
             'food_id': self.food_id,
@@ -83,12 +90,12 @@ class FoodEntry:
 
 class NutritionCalculator:
     """
-    Calculates and analyzes nutritional data across multiple food entries.
+    Calculates and analyzes nutritional data across multiple entries.
 
-    This class aggregates nutritional information from multiple FoodEntry objects
-    and performs complex calculations such as daily totals, goal tracking, and
-    macro balance analysis. It provides insights into nutritional patterns and
-    progress towards daily goals.
+    This class aggregates nutritional information from multiple FoodEntry
+    objects and performs complex calculations such as daily totals, goal
+    tracking, and macro balance analysis. It provides insights into
+    nutritional patterns and progress towards daily goals.
 
     Attributes:
         entries (list): List of FoodEntry objects to analyze
@@ -105,11 +112,12 @@ class NutritionCalculator:
 
     def get_daily_totals(self):
         """
-        Calculates and returns the sum of all nutritional values across entries.
+        Calculates and returns the sum of all nutritional values.
 
         Returns:
-            dict: Dictionary with keys total_calories, total_protein, total_carbs,
-                  total_fats, each containing the sum of values across all entries
+            dict: Dictionary with keys total_calories, total_protein,
+                  total_carbs, total_fats, each containing the sum
+                  of values across all entries
         """
         total_calories = 0
         total_protein = 0
@@ -131,15 +139,16 @@ class NutritionCalculator:
 
     def get_goal_percentages(self, goals_dict):
         """
-        Calculates the percentage of daily nutritional goals achieved.
+        Calculates the percentage of daily goals achieved.
 
         Args:
-            goals_dict (dict): Dictionary with keys daily_calories, daily_protein,
-                             daily_carbs, daily_fats containing goal values
+            goals_dict (dict): Dictionary with keys daily_calories,
+                             daily_protein, daily_carbs, daily_fats
 
         Returns:
-            dict: Dictionary with keys calories_percent, protein_percent, carbs_percent,
-                  fats_percent, each capped at 100 and rounded to 1 decimal place
+            dict: Dictionary with keys calories_percent, protein_percent,
+                  carbs_percent, fats_percent, each capped at 100 and
+                  rounded to 1 decimal place
         """
         totals = self.get_daily_totals()
 
@@ -160,19 +169,21 @@ class NutritionCalculator:
         Analyzes macro balance and returns a classification string.
 
         Classifies the diet as:
-        - "Protein focused" if protein provides >30% of total calories
-        - "Balanced" if all macros are within 10% of ideal ratios (50% carbs, 30% protein, 20% fats)
+        - "Protein focused" if protein provides >30% of calories
+        - "Balanced" if all macros within 10% of ideal ratios
+          (50% carbs, 30% protein, 20% fats)
         - "Carb heavy" otherwise
 
         Returns:
-            str: One of "Protein focused", "Balanced", or "Carb heavy"
+            str: "Protein focused", "Balanced", or "Carb heavy"
         """
         totals = self.get_daily_totals()
 
         if totals['total_calories'] == 0:
             return "No data"
 
-        # Calculate percentage of calories from each macro (9 kcal per gram for fat and protein, 4 kcal per gram for carbs)
+        # Calculate percentage of calories from each macro
+        # (9 kcal per gram for fat and protein, 4 kcal per gram for carbs)
         protein_calories = totals['total_protein'] * 4
         carb_calories = totals['total_carbs'] * 4
         fat_calories = totals['total_fats'] * 9
@@ -197,7 +208,9 @@ class NutritionCalculator:
 
         # Check if balanced (all within 10% of ideal)
         carb_balanced = abs(carb_percent - ideal_carbs) <= tolerance
-        protein_balanced = abs(protein_percent - ideal_protein) <= tolerance
+        protein_balanced = (
+            abs(protein_percent - ideal_protein) <= tolerance
+        )
         fat_balanced = abs(fat_percent - ideal_fats) <= tolerance
 
         if carb_balanced and protein_balanced and fat_balanced:
@@ -207,10 +220,11 @@ class NutritionCalculator:
 
     def get_highest_calorie_meal(self):
         """
-        Finds and returns the food entry with the highest calorie content.
+        Finds and returns the food entry with highest calories.
 
         Returns:
-            FoodEntry: The food entry with the most calories, or None if no entries exist
+            FoodEntry: The entry with the most calories, or None if
+                       no entries exist
         """
         if not self.entries:
             return None
