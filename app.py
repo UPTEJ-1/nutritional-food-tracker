@@ -503,6 +503,104 @@ def goals():
     return render_template('goals.html', current_goals=current_goals)
 
 
+# History route: displays nutrition data for the last 14 days
+@app.route('/history')
+@login_required
+def history():
+    """
+    Displays user's nutrition history for the last 14 days.
+    Queries food_log entries grouped by date, calculates daily totals,
+    determines status (on-track/over/under), and displays in a table.
+    Also provides charts for calorie trends and macro breakdown.
+    Returns: render_template of history.html with daily summaries and goals
+    """
+    from datetime import timedelta
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    today = date.today()
+    fourteen_days_ago = today - timedelta(days=14)
+
+    # Query food_log entries for the last 14 days
+    cursor.execute('''
+        SELECT fl.logged_date, f.calories_per_100g, f.protein, f.carbs, f.fats,
+               fl.quantity_grams
+        FROM food_log fl
+        JOIN foods f ON fl.food_id = f.id
+        WHERE fl.user_id = ? AND fl.logged_date BETWEEN ? AND ?
+        ORDER BY fl.logged_date DESC
+    ''', (current_user.id, fourteen_days_ago, today))
+    food_entries = cursor.fetchall()
+
+    # Get user goals
+    cursor.execute('SELECT daily_calories, daily_protein, daily_carbs, daily_fats FROM goals WHERE user_id = ?', (current_user.id,))
+    goals_row = cursor.fetchone()
+    connection.close()
+
+    # Use default goals if not set
+    if goals_row:
+        goals = {
+            'daily_calories': goals_row['daily_calories'],
+            'daily_protein': goals_row['daily_protein'],
+            'daily_carbs': goals_row['daily_carbs'],
+            'daily_fats': goals_row['daily_fats']
+        }
+    else:
+        goals = {
+            'daily_calories': 2000,
+            'daily_protein': 150,
+            'daily_carbs': 250,
+            'daily_fats': 65
+        }
+
+    # Group entries by date and calculate daily totals
+    daily_data = {}
+    for entry in food_entries:
+        log_date = entry['logged_date']
+        multiplier = entry['quantity_grams'] / 100
+
+        if log_date not in daily_data:
+            daily_data[log_date] = {
+                'calories': 0,
+                'protein': 0,
+                'carbs': 0,
+                'fats': 0
+            }
+
+        daily_data[log_date]['calories'] += entry['calories_per_100g'] * multiplier
+        daily_data[log_date]['protein'] += entry['protein'] * multiplier
+        daily_data[log_date]['carbs'] += entry['carbs'] * multiplier
+        daily_data[log_date]['fats'] += entry['fats'] * multiplier
+
+    # Create daily summaries with status
+    daily_summaries = []
+    for single_date in (today - timedelta(days=n) for n in range(14)):
+        if single_date in daily_data:
+            calories = daily_data[single_date]['calories']
+            # Determine status based on calorie goal
+            if abs(calories - goals['daily_calories']) <= 100:
+                status = 'on-track'
+            elif calories > goals['daily_calories'] + 100:
+                status = 'over'
+            else:
+                status = 'under'
+
+            daily_summaries.append({
+                'date': single_date,
+                'calories': round(calories, 1),
+                'protein': round(daily_data[single_date]['protein'], 1),
+                'carbs': round(daily_data[single_date]['carbs'], 1),
+                'fats': round(daily_data[single_date]['fats'], 1),
+                'status': status
+            })
+
+    return render_template(
+        'history.html',
+        daily_summaries=daily_summaries,
+        goals=goals
+    )
+
+
 # Run the app
 if __name__ == '__main__':
     app.run(debug=True)
