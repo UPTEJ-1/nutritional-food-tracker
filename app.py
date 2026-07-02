@@ -304,12 +304,18 @@ def dashboard():
             'daily_fats': 65
         }
 
-    # Calculate percentages (capped at 100%)
+    # Calculate percentages (capped at 100%). Guard against a zero goal
+    # denominator so a bad/legacy value returns 0 instead of crashing,
+    # independent of the validation added in the goals() route.
     progress = {
-        'calories': min(int((total_calories / goals['daily_calories']) * 100), 100),
-        'protein': min(int((total_protein / goals['daily_protein']) * 100), 100),
-        'carbs': min(int((total_carbs / goals['daily_carbs']) * 100), 100),
+        'calories': min(int((total_calories / goals['daily_calories']) * 100), 100)
+                    if goals['daily_calories'] else 0,
+        'protein': min(int((total_protein / goals['daily_protein']) * 100), 100)
+                   if goals['daily_protein'] else 0,
+        'carbs': min(int((total_carbs / goals['daily_carbs']) * 100), 100)
+                 if goals['daily_carbs'] else 0,
         'fats': min(int((total_fats / goals['daily_fats']) * 100), 100)
+                if goals['daily_fats'] else 0
     }
 
     return render_template('dashboard.html',
@@ -449,6 +455,16 @@ def goals():
             daily_fats = float(daily_fats)
         except ValueError:
             flash('Please enter valid numbers for all fields.', 'danger')
+            connection.close()
+            return redirect(url_for('goals'))
+
+        # Server-side validation: the goals.html form has client-side
+        # min attributes, but the client cannot be trusted, so re-check
+        # here. Reject non-positive macros and calories below 500.
+        if (daily_calories < 500 or daily_protein <= 0
+                or daily_carbs <= 0 or daily_fats <= 0):
+            flash('Daily calories must be at least 500, and all goals '
+                  'must be greater than 0.', 'danger')
             connection.close()
             return redirect(url_for('goals'))
 
