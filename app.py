@@ -169,9 +169,14 @@ def register():
                 (username, email, password_hash)
             )
             connection.commit()
-            flash('Registration successful! Please log in.', 'success')
+            # Log the new user in immediately using the same pattern as
+            # the login() route, so they skip a manual login step.
+            new_user = User(cursor.lastrowid, username, email)
+            login_user(new_user)
+            flash(f'Welcome, {username}! Your account has been created.',
+                  'success')
             connection.close()
-            return redirect(url_for('login'))
+            return redirect(url_for('dashboard'))
         except Exception as e:
             flash(f'Registration failed: {str(e)}', 'danger')
             connection.close()
@@ -591,8 +596,12 @@ def history():
     # Create daily summaries with status
     daily_summaries = []
     for single_date in (today - timedelta(days=n) for n in range(14)):
-        if single_date in daily_data:
-            calories = daily_data[single_date]['calories']
+        # daily_data is keyed by the logged_date TEXT column, so match on
+        # the ISO string rather than the date object to avoid a type
+        # mismatch that would leave every day looking empty.
+        date_key = single_date.isoformat()
+        if date_key in daily_data:
+            calories = daily_data[date_key]['calories']
             # Determine status based on calorie goal
             if abs(calories - goals['daily_calories']) <= 100:
                 status = 'on-track'
@@ -604,9 +613,9 @@ def history():
             daily_summaries.append({
                 'date': single_date,
                 'calories': round(calories, 1),
-                'protein': round(daily_data[single_date]['protein'], 1),
-                'carbs': round(daily_data[single_date]['carbs'], 1),
-                'fats': round(daily_data[single_date]['fats'], 1),
+                'protein': round(daily_data[date_key]['protein'], 1),
+                'carbs': round(daily_data[date_key]['carbs'], 1),
+                'fats': round(daily_data[date_key]['fats'], 1),
                 'status': status
             })
 
