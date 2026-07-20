@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db_connection
@@ -138,6 +138,15 @@ def register():
         # Validate input
         if not username or not email or not password:
             flash('Please fill in all fields.', 'danger')
+            return redirect(url_for('register'))
+
+        # Server-side username / password validation
+        if len(username) < 3 or len(username) > 30:
+            flash('Username must be between 3 and 30 characters.', 'danger')
+            return redirect(url_for('register'))
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
             return redirect(url_for('register'))
 
         if password != confirm_password:
@@ -332,6 +341,37 @@ def dashboard():
                          goals=goals,
                          progress=progress,
                          today_foods=today_food_list)
+
+
+# Food search API used by the live-search on the log food page
+@app.route('/food-search')
+@login_required
+def food_search():
+    """
+    Returns JSON list of foods matching the query parameter `q` using SQL LIKE.
+    Results are ordered with favourites first (is_favourite DESC) when the
+    column exists.
+    """
+    q = request.args.get('q', '').strip()
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    like_q = f"%{q}%"
+    try:
+        cursor.execute('''
+            SELECT f.id, f.name, f.calories_per_100g, f.protein, f.carbs, f.fats,
+                   COALESCE(f.is_favourite, 0) as is_favourite
+            FROM foods f
+            WHERE f.name LIKE ?
+            ORDER BY is_favourite DESC, name ASC
+            LIMIT 50
+        ''', (like_q,))
+        rows = cursor.fetchall()
+    finally:
+        connection.close()
+
+    # Convert sqlite3.Row to dict for jsonify
+    results = [dict(r) for r in rows]
+    return jsonify(results)
 
 
 # Log food route: GET shows form, POST logs food to database

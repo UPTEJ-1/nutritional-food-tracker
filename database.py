@@ -43,9 +43,20 @@ def create_tables():
             protein REAL NOT NULL,
             carbs REAL NOT NULL,
             fats REAL NOT NULL,
-            fibre REAL NOT NULL
+            fibre REAL NOT NULL,
+            is_favourite INTEGER NOT NULL DEFAULT 0
         )
     ''')
+
+    # If this db was created earlier without is_favourite, try to add it.
+    cursor.execute("PRAGMA table_info(foods)")
+    existing_cols = [r[1] for r in cursor.fetchall()]
+    if 'is_favourite' not in existing_cols:
+        try:
+            cursor.execute('ALTER TABLE foods ADD COLUMN is_favourite INTEGER NOT NULL DEFAULT 0')
+            print('Added is_favourite column to foods')
+        except Exception:
+            pass
 
     # Food log table: tracks what food each user consumed and when
     cursor.execute('''
@@ -60,6 +71,18 @@ def create_tables():
             FOREIGN KEY (food_id) REFERENCES foods(id)
         )
     ''')
+
+    # Ensure is_favourite column exists on food_log (added later in project history)
+    cursor.execute("PRAGMA table_info(food_log)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if 'is_favourite' not in cols:
+        try:
+            cursor.execute('ALTER TABLE food_log ADD COLUMN is_favourite INTEGER NOT NULL DEFAULT 0')
+            print('Added is_favourite column to food_log')
+        except Exception:
+            # Older SQLite versions may not support ALTER table in complex ways,
+            # but a simple ADD COLUMN should work. If it fails, skip silently.
+            pass
 
     # Goals table: stores daily nutritional goals for each user
     cursor.execute('''
