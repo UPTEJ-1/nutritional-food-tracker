@@ -1,8 +1,18 @@
-import sqlite3
 import os
+import shutil
+import sqlite3
 
-# Database connection configuration
-DATABASE_PATH = 'nutrition_tracker.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_DIR = os.path.join(BASE_DIR, 'database')
+DATABASE_PATH = os.path.join(DATABASE_DIR, 'nutrition_tracker.db')
+LEGACY_DB_PATH = os.path.join(BASE_DIR, 'nutrition_tracker.db')
+
+
+def ensure_database_location():
+    """Create database/ folder and migrate legacy root DB file if needed."""
+    os.makedirs(DATABASE_DIR, exist_ok=True)
+    if os.path.isfile(LEGACY_DB_PATH) and not os.path.isfile(DATABASE_PATH):
+        shutil.move(LEGACY_DB_PATH, DATABASE_PATH)
 
 
 def get_db_connection():
@@ -10,9 +20,21 @@ def get_db_connection():
     Establishes and returns a SQLite3 database connection.
     Configures row factory to return rows as sqlite3.Row objects for dict-like access.
     """
+    ensure_database_location()
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
+    connection.execute('PRAGMA foreign_keys = ON')
     return connection
+
+
+def migrate_schema(cursor):
+    """Apply incremental schema updates for existing databases."""
+    cursor.execute('PRAGMA table_info(food_log)')
+    columns = {row[1] for row in cursor.fetchall()}
+    if 'is_favourite' not in columns:
+        cursor.execute(
+            'ALTER TABLE food_log ADD COLUMN is_favourite INTEGER NOT NULL DEFAULT 0'
+        )
 
 
 def create_tables():
@@ -20,10 +42,10 @@ def create_tables():
     Creates all necessary database tables if they do not already exist.
     Tables: users, foods, food_log, goals
     """
+    ensure_database_location()
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    # Users table: stores user account information
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +56,6 @@ def create_tables():
         )
     ''')
 
-    # Foods table: stores nutritional information for foods
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS foods (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +68,6 @@ def create_tables():
         )
     ''')
 
-    # Food log table: tracks what food each user consumed and when
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS food_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,12 +76,12 @@ def create_tables():
             quantity_grams REAL NOT NULL,
             meal_type TEXT NOT NULL,
             logged_date DATE NOT NULL DEFAULT CURRENT_DATE,
+            is_favourite INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (food_id) REFERENCES foods(id)
         )
     ''')
 
-    # Goals table: stores daily nutritional goals for each user
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS goals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,23 +94,21 @@ def create_tables():
         )
     ''')
 
+    migrate_schema(cursor)
     connection.commit()
     connection.close()
-    print("Tables created successfully!")
 
 
 def seed_foods():
     """
-    Populates the foods table with 20 real foods and their accurate nutritional data per 100g.
+    Populates the foods table with 20 foods per 100g (USDA FoodData Central values).
     Only seeds if foods table is empty to avoid duplicate entries.
     """
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    # Check if foods already exist
     cursor.execute('SELECT COUNT(*) FROM foods')
     if cursor.fetchone()[0] > 0:
-        print("Foods already seeded, skipping...")
         connection.close()
         return
 
@@ -124,9 +142,9 @@ def seed_foods():
 
     connection.commit()
     connection.close()
-    print(f"Seeded {len(foods_data)} foods successfully!")
 
 
 if __name__ == '__main__':
     create_tables()
     seed_foods()
+    print(f'Database ready at {DATABASE_PATH}')

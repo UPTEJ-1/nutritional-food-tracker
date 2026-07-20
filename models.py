@@ -152,14 +152,23 @@ class NutritionCalculator:
         """
         totals = self.get_daily_totals()
 
-        cal_ratio = totals['total_calories'] / goals_dict['daily_calories']
-        calories_percent = min(cal_ratio * 100, 100)
-        prot_ratio = totals['total_protein'] / goals_dict['daily_protein']
-        protein_percent = min(prot_ratio * 100, 100)
-        carbs_ratio = totals['total_carbs'] / goals_dict['daily_carbs']
-        carbs_percent = min(carbs_ratio * 100, 100)
-        fats_ratio = totals['total_fats'] / goals_dict['daily_fats']
-        fats_percent = min(fats_ratio * 100, 100)
+        def goal_pct(consumed, goal):
+            if not goal:
+                return 0.0
+            return min((consumed / goal) * 100, 100)
+
+        calories_percent = goal_pct(
+            totals['total_calories'], goals_dict['daily_calories']
+        )
+        protein_percent = goal_pct(
+            totals['total_protein'], goals_dict['daily_protein']
+        )
+        carbs_percent = goal_pct(
+            totals['total_carbs'], goals_dict['daily_carbs']
+        )
+        fats_percent = goal_pct(
+            totals['total_fats'], goals_dict['daily_fats']
+        )
 
         return {
             'calories_percent': round(calories_percent, 1),

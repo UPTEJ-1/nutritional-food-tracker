@@ -3,289 +3,96 @@
 {% block title %}Dashboard - NutriTrack{% endblock %}
 
 {% block content %}
-<div class="dashboard-container">
+<div class="dashboard-page">
     <div class="welcome-section">
-        <h1>Welcome, {{ username }}!</h1>
+        <h1 class="page-title">Welcome, {{ username }}!</h1>
+        {% if macro_balance and macro_balance != 'No data' %}
+            <p class="macro-balance">Today's diet profile: <strong>{{ macro_balance }}</strong></p>
+        {% endif %}
     </div>
 
-    <!-- Daily Calories Summary -->
-    <div class="calories-summary">
-        <h2>{{ "{:,.0f}".format(total_calories) }} / {{ "{:,.0f}".format(goals.daily_calories) }} kcal</h2>
+    <div class="macro-grid">
+        <div class="macro-card">
+            <div class="macro-label">Calories</div>
+            <div class="macro-value">{{ "{:.0f}".format(total_calories) }} / {{ "{:.0f}".format(goals.daily_calories) }}</div>
+            <div class="macro-goal">Consumed / target (kcal)</div>
+            <div class="progress-container">
+                <div class="progress-fill progress-calories" style="width: {{ progress.calories }}%;"></div>
+            </div>
+            <div class="progress-text">{{ progress.calories }}% of goal</div>
+        </div>
+        <div class="macro-card">
+            <div class="macro-label">Protein</div>
+            <div class="macro-value">{{ "{:.0f}".format(total_protein) }}g / {{ "{:.0f}".format(goals.daily_protein) }}g</div>
+            <div class="macro-goal">Consumed / target</div>
+            <div class="progress-container">
+                <div class="progress-fill progress-protein" style="width: {{ progress.protein }}%;"></div>
+            </div>
+            <div class="progress-text">{{ progress.protein }}% of goal</div>
+        </div>
+        <div class="macro-card">
+            <div class="macro-label">Carbs</div>
+            <div class="macro-value">{{ "{:.0f}".format(total_carbs) }}g / {{ "{:.0f}".format(goals.daily_carbs) }}g</div>
+            <div class="macro-goal">Consumed / target</div>
+            <div class="progress-container">
+                <div class="progress-fill progress-carbs" style="width: {{ progress.carbs }}%;"></div>
+            </div>
+            <div class="progress-text">{{ progress.carbs }}% of goal</div>
+        </div>
+        <div class="macro-card">
+            <div class="macro-label">Fats</div>
+            <div class="macro-value">{{ "{:.0f}".format(total_fats) }}g / {{ "{:.0f}".format(goals.daily_fats) }}g</div>
+            <div class="macro-goal">Consumed / target</div>
+            <div class="progress-container">
+                <div class="progress-fill progress-fats" style="width: {{ progress.fats }}%;"></div>
+            </div>
+            <div class="progress-text">{{ progress.fats }}% of goal</div>
+        </div>
     </div>
 
-    <!-- Log Food Button -->
-    <div class="action-buttons">
+    <div class="dashboard-actions">
         <a href="{{ url_for('log_food') }}" class="btn btn-primary btn-large">+ Log Food</a>
     </div>
 
-    <!-- Macronutrient Progress Bars -->
-    <div class="macros-section">
-        <h3>Today's Macronutrients</h3>
-
-        <!-- Calories Progress Bar -->
-        <div class="macro-item">
-            <div class="macro-header">
-                <label>Calories</label>
-                <span class="macro-values">{{ "{:.0f}".format(total_calories) }} / {{ "{:.0f}".format(goals.daily_calories) }} ({{ progress.calories }}%)</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress.calories }}%"></div>
-            </div>
-        </div>
-
-        <!-- Protein Progress Bar -->
-        <div class="macro-item">
-            <div class="macro-header">
-                <label>Protein</label>
-                <span class="macro-values">{{ "{:.1f}".format(total_protein) }} / {{ "{:.1f}".format(goals.daily_protein) }}g ({{ progress.protein }}%)</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress.protein }}%"></div>
-            </div>
-        </div>
-
-        <!-- Carbs Progress Bar -->
-        <div class="macro-item">
-            <div class="macro-header">
-                <label>Carbs</label>
-                <span class="macro-values">{{ "{:.1f}".format(total_carbs) }} / {{ "{:.1f}".format(goals.daily_carbs) }}g ({{ progress.carbs }}%)</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress.carbs }}%"></div>
-            </div>
-        </div>
-
-        <!-- Fats Progress Bar -->
-        <div class="macro-item">
-            <div class="macro-header">
-                <label>Fats</label>
-                <span class="macro-values">{{ "{:.1f}".format(total_fats) }} / {{ "{:.1f}".format(goals.daily_fats) }}g ({{ progress.fats }}%)</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress.fats }}%"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Today's Food Log -->
-    <div class="food-log-section">
-        <h3>Today's Food Log</h3>
-
-        {% if today_foods %}
-            <div class="food-list">
-                {% for food in today_foods %}
-                    <div class="food-item">
-                        <div class="food-info">
-                            <div class="food-name">{{ food.name }}</div>
-                            <div class="food-details">
-                                <span class="quantity">{{ food.quantity_grams }}g</span>
-                                <span class="meal-type">{{ food.meal_type }}</span>
-                                <span class="calories">{{ "{:.0f}".format(food.calories) }} kcal</span>
+    <div class="food-log-container">
+        <h2 class="food-log-title">Today's Food Log</h2>
+        {% set has_foods = namespace(value=false) %}
+        {% for meal in meal_order %}
+            {% if meals_grouped[meal] %}
+                {% set has_foods.value = true %}
+                <section class="meal-section">
+                    <header class="meal-header">
+                        <h3>{{ meal }}</h3>
+                        <span class="meal-subtotal">{{ "{:.0f}".format(meal_subtotals[meal].calories) }} kcal</span>
+                    </header>
+                    {% for food in meals_grouped[meal] %}
+                        <div class="food-item">
+                            <div class="food-info">
+                                <div class="food-name">
+                                    {% if food.is_favourite %}★ {% endif %}{{ food.name }}
+                                </div>
+                                <div class="food-details">
+                                    {{ food.quantity_grams }}g · {{ "{:.0f}".format(food.calories) }} kcal
+                                </div>
+                            </div>
+                            <div class="food-actions">
+                                <form method="POST" action="{{ url_for('toggle_favourite', entry_id=food.id) }}">
+                                    <button type="submit" class="btn btn-secondary btn-small" title="Toggle favourite">
+                                        {% if food.is_favourite %}Unstar{% else %}Star{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_food_log', entry_id=food.id) }}">
+                                    <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Delete this food entry?')">Delete</button>
+                                </form>
                             </div>
                         </div>
-                        <form method="POST" action="{{ url_for('delete_food_log', entry_id=food.id) }}" class="delete-form">
-                            <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Delete this food entry?')">Delete</button>
-                        </form>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="no-foods">No foods logged today. <a href="{{ url_for('log_food') }}">Log your first meal!</a></p>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endfor %}
+        {% if not has_foods.value %}
+            <p class="empty-log">No foods logged today. <a href="{{ url_for('log_food') }}">Log your first meal!</a></p>
         {% endif %}
     </div>
 </div>
-
-<style>
-    .dashboard-container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-
-    .welcome-section {
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .welcome-section h1 {
-        font-size: 2rem;
-        color: #333;
-    }
-
-    .calories-summary {
-        text-align: center;
-        background: #f0f4f8;
-        padding: 2rem;
-        border-radius: 8px;
-        margin-bottom: 2rem;
-    }
-
-    .calories-summary h2 {
-        font-size: 2.5rem;
-        color: #007bff;
-        margin: 0;
-    }
-
-    .action-buttons {
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .btn-large {
-        padding: 1rem 2rem;
-        font-size: 1.1rem;
-    }
-
-    .macros-section {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 2rem;
-    }
-
-    .macros-section h3 {
-        margin-top: 0;
-        color: #333;
-    }
-
-    .macro-item {
-        margin-bottom: 1.5rem;
-    }
-
-    .macro-header {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
-        font-weight: 500;
-    }
-
-    .macro-header label {
-        color: #333;
-    }
-
-    .macro-values {
-        color: #666;
-        font-size: 0.9rem;
-    }
-
-    .progress-bar {
-        height: 20px;
-        background: #e9ecef;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-
-    .progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #28a745, #20c997);
-        transition: width 0.3s ease;
-    }
-
-    .food-log-section {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .food-log-section h3 {
-        margin-top: 0;
-        color: #333;
-    }
-
-    .food-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .food-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem;
-        background: #f8f9fa;
-        border-radius: 4px;
-        border-left: 4px solid #007bff;
-    }
-
-    .food-info {
-        flex: 1;
-    }
-
-    .food-name {
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 0.3rem;
-    }
-
-    .food-details {
-        display: flex;
-        gap: 1rem;
-        font-size: 0.9rem;
-        color: #666;
-    }
-
-    .food-details span {
-        background: white;
-        padding: 0.2rem 0.5rem;
-        border-radius: 3px;
-    }
-
-    .delete-form {
-        margin-left: 1rem;
-    }
-
-    .btn {
-        display: inline-block;
-        padding: 0.75rem 1.5rem;
-        border-radius: 4px;
-        text-decoration: none;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border: none;
-        cursor: pointer;
-        font-size: 1rem;
-    }
-
-    .btn-primary {
-        background: #007bff;
-        color: white;
-    }
-
-    .btn-primary:hover {
-        background: #0056b3;
-    }
-
-    .btn-danger {
-        background: #dc3545;
-        color: white;
-    }
-
-    .btn-danger:hover {
-        background: #c82333;
-    }
-
-    .btn-small {
-        padding: 0.5rem 1rem;
-        font-size: 0.9rem;
-    }
-
-    .no-foods {
-        text-align: center;
-        color: #666;
-        padding: 2rem;
-    }
-
-    .no-foods a {
-        color: #007bff;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    .no-foods a:hover {
-        text-decoration: underline;
-    }
-</style>
 {% endblock %}

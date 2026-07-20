@@ -20,7 +20,7 @@
                         <li><a href="{{ url_for('log_food') }}">Log Food</a></li>
                         <li><a href="{{ url_for('history') }}">History</a></li>
                         <li><a href="{{ url_for('goals') }}">Goals</a></li>
-                        <li><a href="#">Profile</a></li>
+                        <li><a href="{{ url_for('profile') }}">Profile</a></li>
                         <li><a href="{{ url_for('logout') }}">Logout</a></li>
                     </ul>
                 {% else %}
@@ -55,5 +55,6 @@
     <footer class="footer">
         <p>&copy; 2026 NutriTrack. All rights reserved.</p>
     </footer>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
