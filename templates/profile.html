@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - NutriTrack{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <h1 class="page-title">Profile</h1>
+    <div class="profile-card">
+        <p><strong>Username:</strong> {{ username }}</p>
+        <p><strong>Email:</strong> {{ email }}</p>
+        <p class="profile-hint">Update your daily targets from the <a href="{{ url_for('goals') }}">Goals</a> page.</p>
+    </div>
+</div>
+{% endblock %}

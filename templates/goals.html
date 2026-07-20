@@ -10,7 +10,7 @@
     <form method="POST" action="{{ url_for('goals') }}" class="goals-form">
         <div class="form-group">
             <label for="daily_calories">Daily Calorie Goal (kcal)</label>
-            <input type="number" id="daily_calories" name="daily_calories" min="1000" max="10000" step="50"
+            <input type="number" id="daily_calories" name="daily_calories" min="500" max="10000" step="50"
                    value="{{ current_goals.daily_calories }}" required>
             <small>Typical range: 1500 - 3500 kcal</small>
         </div>
@@ -39,6 +39,11 @@
         <button type="submit" class="btn btn-primary">Save Goals</button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
     </form>
+
+    <p class="goals-footnote">
+        Need a food that is not in the catalog? Contact the developer to request new items
+        (custom food submission is outside the current app scope).
+    </p>
 </div>
 
 <style>
@@ -130,6 +135,13 @@
 
     .btn-secondary:hover {
         background: #545b62;
+    }
+
+    .goals-footnote {
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+        color: #666;
+        line-height: 1.5;
     }
 </style>
 {% endblock %}

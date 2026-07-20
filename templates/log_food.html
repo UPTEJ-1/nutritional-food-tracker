@@ -4,22 +4,20 @@
 
 {% block content %}
 <div class="log-food-container">
-    <h1>Log Food</h1>
+    <h1 class="page-title">Log Food</h1>
 
-    <form method="POST" action="{{ url_for('log_food') }}" class="log-food-form">
-        <div class="form-group">
-            <label for="food_id">Select Food</label>
-            <select id="food_id" name="food_id" required>
-                <option value="">-- Choose a food --</option>
-                {% for food in foods %}
-                    <option value="{{ food['id'] }}">{{ food['name'] }}</option>
-                {% endfor %}
-            </select>
+    <form method="POST" action="{{ url_for('log_food') }}" class="log-food-form" id="logFoodForm">
+        <div class="form-group food-search-group">
+            <label for="food_search">Search food</label>
+            <input type="text" id="food_search" autocomplete="off" placeholder="Type to search foods (e.g. chicken, rice)">
+            <input type="hidden" id="food_id" name="food_id" required>
+            <div id="food_results" class="food-results-dropdown" hidden></div>
+            <p id="selected_food_label" class="selected-food-label">No food selected yet.</p>
         </div>
 
         <div class="form-group">
-            <label for="quantity_grams">Quantity (in grams)</label>
-            <input type="number" id="quantity_grams" name="quantity_grams" min="1" max="2000" required>
+            <label for="quantity_grams">Quantity in grams</label>
+            <input type="number" id="quantity_grams" name="quantity_grams" min="1" max="2000" step="1" required>
         </div>
 
         <div class="form-group">
@@ -38,4 +36,8 @@
 
     <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/log_food.js') }}"></script>
 {% endblock %}

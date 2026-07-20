@@ -1,13 +1,95 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from database import get_db_connection
-from datetime import date
+from database import get_db_connection, create_tables, seed_foods
+from models import FoodEntry, NutritionCalculator
+from datetime import date, timedelta
 import os
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+DEFAULT_GOALS = {
+    'daily_calories': 2000,
+    'daily_protein': 150,
+    'daily_carbs': 250,
+    'daily_fats': 65,
+}
+
+MEAL_ORDER = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+
+
+def validate_registration(username, password):
+    username = (username or '').strip()
+    if len(username) < 3 or len(username) > 30:
+        return 'Username must be between 3 and 30 characters.'
+    if not password:
+        return 'Please fill in all fields.'
+    if len(password) < 8:
+        return 'Password must be at least 8 characters.'
+    return None
+
+
+def favourite_food_ids(cursor, user_id):
+    cursor.execute('''
+        SELECT DISTINCT food_id FROM food_log
+        WHERE user_id = ? AND is_favourite = 1
+    ''', (user_id,))
+    return {row['food_id'] for row in cursor.fetchall()}
+
+
+def search_foods(cursor, user_id, query):
+    """Search foods with SQL LIKE; favourites appear first in results."""
+    favourites = favourite_food_ids(cursor, user_id)
+    like_term = f'%{query.strip()}%'
+    cursor.execute('''
+        SELECT id, name, calories_per_100g, protein, carbs, fats
+        FROM foods
+        WHERE name LIKE ? COLLATE NOCASE
+        ORDER BY name ASC
+        LIMIT 50
+    ''', (like_term,))
+    rows = cursor.fetchall()
+    results = []
+    for row in rows:
+        results.append({
+            'id': row['id'],
+            'name': row['name'],
+            'calories_per_100g': row['calories_per_100g'],
+            'protein': row['protein'],
+            'carbs': row['carbs'],
+            'fats': row['fats'],
+            'is_favourite': row['id'] in favourites,
+        })
+    results.sort(key=lambda item: (not item['is_favourite'], item['name'].lower()))
+    return results
+
+
+def init_database():
+    """Ensure schema and starter food catalog exist before handling requests."""
+    create_tables()
+    seed_foods()
+
+
+def goals_from_row(goals_row):
+    if goals_row:
+        return {
+            'daily_calories': goals_row['daily_calories'],
+            'daily_protein': goals_row['daily_protein'],
+            'daily_carbs': goals_row['daily_carbs'],
+            'daily_fats': goals_row['daily_fats'],
+        }
+    return dict(DEFAULT_GOALS)
+
+
+def fetch_user_goals(cursor, user_id):
+    cursor.execute(
+        'SELECT daily_calories, daily_protein, daily_carbs, daily_fats '
+        'FROM goals WHERE user_id = ?',
+        (user_id,),
+    )
+    return goals_from_row(cursor.fetchone())
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -129,15 +211,23 @@ def register():
     POST: Validates input, hashes password, creates new user in database.
     Returns: render_template on GET, redirect to login on successful POST, render_template with error on failed POST
     """
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
-        # Validate input
         if not username or not email or not password:
             flash('Please fill in all fields.', 'danger')
+            return redirect(url_for('register'))
+
+        username = username.strip()
+        validation_error = validate_registration(username, password)
+        if validation_error:
+            flash(validation_error, 'danger')
             return redirect(url_for('register'))
 
         if password != confirm_password:
@@ -194,6 +284,9 @@ def login():
     POST: Authenticates user credentials and creates session.
     Returns: render_template on GET, redirect to dashboard on successful POST, render_template with error on failed POST
     """
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -253,20 +346,24 @@ def dashboard():
 
     # Query today's food log entries with food names
     cursor.execute('''
-        SELECT fl.id, f.name, fl.quantity_grams, fl.meal_type, f.calories_per_100g, f.protein, f.carbs, f.fats
+        SELECT fl.id, fl.food_id, fl.is_favourite, f.name, fl.quantity_grams,
+               fl.meal_type, f.calories_per_100g, f.protein, f.carbs, f.fats
         FROM food_log fl
         JOIN foods f ON fl.food_id = f.id
         WHERE fl.user_id = ? AND fl.logged_date = ?
         ORDER BY fl.id DESC
-    ''', (current_user.id, today))
+    ''', (current_user.id, today.isoformat()))
     today_foods = cursor.fetchall()
 
-    # Calculate daily totals
-    total_calories = 0
-    total_protein = 0
-    total_carbs = 0
-    total_fats = 0
-    today_food_list = []
+    goals = fetch_user_goals(cursor, current_user.id)
+    connection.close()
+
+    food_entries = []
+    meals_grouped = {meal: [] for meal in MEAL_ORDER}
+    meal_subtotals = {
+        meal: {'calories': 0, 'protein': 0, 'carbs': 0, 'fats': 0}
+        for meal in MEAL_ORDER
+    }
 
     for food in today_foods:
         multiplier = food['quantity_grams'] / 100
@@ -275,63 +372,65 @@ def dashboard():
         carbs = food['carbs'] * multiplier
         fats = food['fats'] * multiplier
 
-        total_calories += calories
-        total_protein += protein
-        total_carbs += carbs
-        total_fats += fats
+        food_entries.append(FoodEntry(
+            food['food_id'],
+            food['name'],
+            food['quantity_grams'],
+            food['meal_type'],
+            calories,
+            protein,
+            carbs,
+            fats,
+        ))
 
-        today_food_list.append({
+        entry = {
             'id': food['id'],
+            'food_id': food['food_id'],
             'name': food['name'],
             'quantity_grams': food['quantity_grams'],
             'meal_type': food['meal_type'],
-            'calories': round(calories, 1)
-        })
-
-    # Query user goals
-    cursor.execute('SELECT daily_calories, daily_protein, daily_carbs, daily_fats FROM goals WHERE user_id = ?', (current_user.id,))
-    goals_row = cursor.fetchone()
-    connection.close()
-
-    # Use default goals if not set
-    if goals_row:
-        goals = {
-            'daily_calories': goals_row['daily_calories'],
-            'daily_protein': goals_row['daily_protein'],
-            'daily_carbs': goals_row['daily_carbs'],
-            'daily_fats': goals_row['daily_fats']
+            'calories': round(calories, 1),
+            'protein': round(protein, 1),
+            'carbs': round(carbs, 1),
+            'fats': round(fats, 1),
+            'is_favourite': bool(food['is_favourite']),
         }
-    else:
-        goals = {
-            'daily_calories': 2000,
-            'daily_protein': 150,
-            'daily_carbs': 250,
-            'daily_fats': 65
-        }
+        meal_key = food['meal_type'] if food['meal_type'] in meals_grouped else 'Snack'
+        meals_grouped[meal_key].append(entry)
+        meal_subtotals[meal_key]['calories'] += calories
+        meal_subtotals[meal_key]['protein'] += protein
+        meal_subtotals[meal_key]['carbs'] += carbs
+        meal_subtotals[meal_key]['fats'] += fats
 
-    # Calculate percentages (capped at 100%). Guard against a zero goal
-    # denominator so a bad/legacy value returns 0 instead of crashing,
-    # independent of the validation added in the goals() route.
+    calculator = NutritionCalculator(food_entries)
+    totals = calculator.get_daily_totals()
+    goal_pct = calculator.get_goal_percentages(goals)
     progress = {
-        'calories': min(int((total_calories / goals['daily_calories']) * 100), 100)
-                    if goals['daily_calories'] else 0,
-        'protein': min(int((total_protein / goals['daily_protein']) * 100), 100)
-                   if goals['daily_protein'] else 0,
-        'carbs': min(int((total_carbs / goals['daily_carbs']) * 100), 100)
-                 if goals['daily_carbs'] else 0,
-        'fats': min(int((total_fats / goals['daily_fats']) * 100), 100)
-                if goals['daily_fats'] else 0
+        'calories': int(goal_pct['calories_percent']),
+        'protein': int(goal_pct['protein_percent']),
+        'carbs': int(goal_pct['carbs_percent']),
+        'fats': int(goal_pct['fats_percent']),
     }
+    macro_balance = calculator.get_macro_balance()
 
-    return render_template('dashboard.html',
-                         username=current_user.username,
-                         total_calories=round(total_calories, 1),
-                         total_protein=round(total_protein, 1),
-                         total_carbs=round(total_carbs, 1),
-                         total_fats=round(total_fats, 1),
-                         goals=goals,
-                         progress=progress,
-                         today_foods=today_food_list)
+    for meal in MEAL_ORDER:
+        for key in meal_subtotals[meal]:
+            meal_subtotals[meal][key] = round(meal_subtotals[meal][key], 1)
+
+    return render_template(
+        'dashboard.html',
+        username=current_user.username,
+        total_calories=totals['total_calories'],
+        total_protein=totals['total_protein'],
+        total_carbs=totals['total_carbs'],
+        total_fats=totals['total_fats'],
+        goals=goals,
+        progress=progress,
+        macro_balance=macro_balance,
+        meals_grouped=meals_grouped,
+        meal_subtotals=meal_subtotals,
+        meal_order=MEAL_ORDER,
+    )
 
 
 # Log food route: GET shows form, POST logs food to database
@@ -375,7 +474,7 @@ def log_food():
             cursor.execute('''
                 INSERT INTO food_log (user_id, food_id, quantity_grams, meal_type, logged_date)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (current_user.id, food_id, quantity_grams, meal_type, date.today()))
+            ''', (current_user.id, food_id, quantity_grams, meal_type, date.today().isoformat()))
             connection.commit()
             flash(f'Food logged successfully! ({nutrition["calories"]:.1f} kcal)', 'success')
             connection.close()
@@ -385,14 +484,74 @@ def log_food():
             connection.close()
             return redirect(url_for('log_food'))
 
-    # GET request: fetch all foods
+    return render_template('log_food.html')
+
+
+@app.route('/api/foods/search')
+@login_required
+def api_food_search():
+    """JSON food search using SQL LIKE; favourites listed first."""
+    query = request.args.get('q', '').strip()
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute('SELECT id, name FROM foods ORDER BY name')
-    foods = cursor.fetchall()
+    if not query:
+        cursor.execute('''
+            SELECT id, name, calories_per_100g, protein, carbs, fats
+            FROM foods ORDER BY name ASC LIMIT 50
+        ''')
+        favourites = favourite_food_ids(cursor, current_user.id)
+        foods = [{
+            'id': row['id'],
+            'name': row['name'],
+            'calories_per_100g': row['calories_per_100g'],
+            'protein': row['protein'],
+            'carbs': row['carbs'],
+            'fats': row['fats'],
+            'is_favourite': row['id'] in favourites,
+        } for row in cursor.fetchall()]
+        foods.sort(key=lambda item: (not item['is_favourite'], item['name'].lower()))
+    else:
+        foods = search_foods(cursor, current_user.id, query)
     connection.close()
+    return jsonify({'foods': foods})
 
-    return render_template('log_food.html', foods=foods)
+
+@app.route('/toggle-favourite/<int:entry_id>', methods=['POST'])
+@login_required
+def toggle_favourite(entry_id):
+    """Star or unstar a logged food entry (marks food as favourite for search)."""
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute(
+        'SELECT user_id, is_favourite FROM food_log WHERE id = ?',
+        (entry_id,),
+    )
+    entry = cursor.fetchone()
+    if not entry or entry['user_id'] != current_user.id:
+        flash('Food entry not found or unauthorized.', 'danger')
+        connection.close()
+        return redirect(url_for('dashboard'))
+
+    new_value = 0 if entry['is_favourite'] else 1
+    cursor.execute(
+        'UPDATE food_log SET is_favourite = ? WHERE id = ?',
+        (new_value, entry_id),
+    )
+    connection.commit()
+    connection.close()
+    flash('Favourite updated.', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/profile')
+@login_required
+def profile():
+    """Simple profile page linked from the navbar."""
+    return render_template(
+        'profile.html',
+        username=current_user.username,
+        email=current_user.email,
+    )
 
 
 # Delete food log entry route: removes a logged food entry
@@ -501,25 +660,8 @@ def goals():
             return redirect(url_for('goals'))
 
     # GET request: fetch current goals
-    cursor.execute('SELECT daily_calories, daily_protein, daily_carbs, daily_fats FROM goals WHERE user_id = ?', (current_user.id,))
-    user_goals = cursor.fetchone()
+    current_goals = fetch_user_goals(cursor, current_user.id)
     connection.close()
-
-    # Use default values if no goals exist
-    if user_goals:
-        current_goals = {
-            'daily_calories': user_goals['daily_calories'],
-            'daily_protein': user_goals['daily_protein'],
-            'daily_carbs': user_goals['daily_carbs'],
-            'daily_fats': user_goals['daily_fats']
-        }
-    else:
-        current_goals = {
-            'daily_calories': 2000,
-            'daily_protein': 150,
-            'daily_carbs': 250,
-            'daily_fats': 65
-        }
 
     return render_template('goals.html', current_goals=current_goals)
 
@@ -535,14 +677,12 @@ def history():
     Also provides charts for calorie trends and macro breakdown.
     Returns: render_template of history.html with daily summaries and goals
     """
-    from datetime import timedelta
-
     connection = get_db_connection()
     cursor = connection.cursor()
     today = date.today()
-    fourteen_days_ago = today - timedelta(days=14)
+    fourteen_days_ago = today - timedelta(days=13)
 
-    # Query food_log entries for the last 14 days
+    # Query food_log entries for the last 14 days (inclusive)
     cursor.execute('''
         SELECT fl.logged_date, f.calories_per_100g, f.protein, f.carbs, f.fats,
                fl.quantity_grams
@@ -550,29 +690,11 @@ def history():
         JOIN foods f ON fl.food_id = f.id
         WHERE fl.user_id = ? AND fl.logged_date BETWEEN ? AND ?
         ORDER BY fl.logged_date DESC
-    ''', (current_user.id, fourteen_days_ago, today))
+    ''', (current_user.id, fourteen_days_ago.isoformat(), today.isoformat()))
     food_entries = cursor.fetchall()
 
-    # Get user goals
-    cursor.execute('SELECT daily_calories, daily_protein, daily_carbs, daily_fats FROM goals WHERE user_id = ?', (current_user.id,))
-    goals_row = cursor.fetchone()
+    goals = fetch_user_goals(cursor, current_user.id)
     connection.close()
-
-    # Use default goals if not set
-    if goals_row:
-        goals = {
-            'daily_calories': goals_row['daily_calories'],
-            'daily_protein': goals_row['daily_protein'],
-            'daily_carbs': goals_row['daily_carbs'],
-            'daily_fats': goals_row['daily_fats']
-        }
-    else:
-        goals = {
-            'daily_calories': 2000,
-            'daily_protein': 150,
-            'daily_carbs': 250,
-            'daily_fats': 65
-        }
 
     # Group entries by date and calculate daily totals
     daily_data = {}
@@ -593,39 +715,69 @@ def history():
         daily_data[log_date]['carbs'] += entry['carbs'] * multiplier
         daily_data[log_date]['fats'] += entry['fats'] * multiplier
 
-    # Create daily summaries with status
-    daily_summaries = []
-    for single_date in (today - timedelta(days=n) for n in range(14)):
-        # daily_data is keyed by the logged_date TEXT column, so match on
-        # the ISO string rather than the date object to avoid a type
-        # mismatch that would leave every day looking empty.
-        date_key = single_date.isoformat()
-        if date_key in daily_data:
-            calories = daily_data[date_key]['calories']
-            # Determine status based on calorie goal
-            if abs(calories - goals['daily_calories']) <= 100:
-                status = 'on-track'
-            elif calories > goals['daily_calories'] + 100:
-                status = 'over'
-            else:
-                status = 'under'
+    def status_for_calories(calories):
+        if abs(calories - goals['daily_calories']) <= 100:
+            return 'on-track'
+        if calories > goals['daily_calories'] + 100:
+            return 'over'
+        return 'under'
 
-            daily_summaries.append({
-                'date': single_date,
-                'calories': round(calories, 1),
-                'protein': round(daily_data[date_key]['protein'], 1),
-                'carbs': round(daily_data[date_key]['carbs'], 1),
-                'fats': round(daily_data[date_key]['fats'], 1),
-                'status': status
-            })
+    daily_summaries = []
+    chart_data = []
+    today_totals = {'protein': 0, 'carbs': 0, 'fats': 0, 'calories': 0}
+
+    for n in range(14):
+        single_date = today - timedelta(days=n)
+        date_key = single_date.isoformat()
+        day_totals = daily_data.get(date_key, {
+            'calories': 0,
+            'protein': 0,
+            'carbs': 0,
+            'fats': 0,
+        })
+
+        summary = {
+            'date': single_date,
+            'calories': round(day_totals['calories'], 1),
+            'protein': round(day_totals['protein'], 1),
+            'carbs': round(day_totals['carbs'], 1),
+            'fats': round(day_totals['fats'], 1),
+            'status': status_for_calories(day_totals['calories']),
+        }
+        daily_summaries.append(summary)
+        chart_data.append({
+            'date': date_key,
+            'calories': summary['calories'],
+            'protein': summary['protein'],
+            'carbs': summary['carbs'],
+            'fats': summary['fats'],
+        })
+
+        if n == 0:
+            today_totals = {
+                'calories': summary['calories'],
+                'protein': summary['protein'],
+                'carbs': summary['carbs'],
+                'fats': summary['fats'],
+            }
+
+    calorie_values = [day['calories'] for day in daily_summaries]
+    weekly_average_calories = round(
+        sum(calorie_values) / len(calorie_values), 1
+    ) if calorie_values else 0
 
     return render_template(
         'history.html',
         daily_summaries=daily_summaries,
+        chart_data=chart_data,
+        today_totals=today_totals,
+        weekly_average_calories=weekly_average_calories,
         goals=goals
     )
 
 
 # Run the app
+init_database()
+
 if __name__ == '__main__':
     app.run(debug=True)
