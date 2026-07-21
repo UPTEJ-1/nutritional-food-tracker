@@ -10,7 +10,7 @@
         <div class="form-group food-search-group">
             <label for="food_search">Search food</label>
             <input type="text" id="food_search" autocomplete="off" placeholder="Type to search foods (e.g. chicken, rice)">
-            <input type="hidden" id="food_id" name="food_id" required>
+            <input type="hidden" id="food_id" name="food_id">
             <div id="food_results" class="food-results-dropdown" hidden></div>
             <p id="selected_food_label" class="selected-food-label">No food selected yet.</p>
         </div>
@@ -31,8 +31,21 @@
             </select>
         </div>
 
-        <button type="submit" class="btn btn-primary">Log Food</button>
+        <div class="form-actions" style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
+            <button type="button" id="addToList" class="btn btn-secondary btn-small">Add to list</button>
+            <button type="submit" id="submitAll" class="btn btn-primary">Log Selected Foods</button>
+            <input type="hidden" id="batch_entries" name="batch_entries" value="">
+        </div>
     </form>
+
+    <div id="pendingList" class="food-log-container" aria-live="polite">
+        <h2 class="food-log-title">Pending items</h2>
+        <div id="pendingItems" style="min-height:40px;">
+            <p class="food-result-empty">No foods in the list. Use "Add to list" to queue multiple items.</p>
+        </div>
+        <div id="pendingSummary" style="margin-top:12px; color:var(--text-light); font-size:14px;">
+        </div>
+    </div>
 
     <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
 </div>

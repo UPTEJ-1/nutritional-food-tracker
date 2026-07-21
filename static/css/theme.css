@@ -1,0 +1,97 @@
+/* Theme overrides and small UI improvements */
+
+/* Use the Inter font loaded in base.html */
+.site-body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Skip link for accessibility */
+.skip-link {
+    position: absolute;
+    left: -999px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+.skip-link:focus {
+    left: 12px;
+    top: 12px;
+    width: auto;
+    height: auto;
+    padding: 8px 12px;
+    background: var(--card-bg);
+    color: var(--text);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    z-index: 1000;
+}
+
+/* Mobile navbar toggle */
+.navbar-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+}
+
+.hamburger,
+.hamburger::before,
+.hamburger::after {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: #fff;
+    border-radius: 2px;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    position: relative;
+}
+.hamburger::before,
+.hamburger::after {
+    content: '';
+    position: absolute;
+    left: 0;
+}
+.hamburger::before { top: -7px; }
+.hamburger::after { top: 7px; }
+
+/* When menu open - simple transform */
+.navbar-toggle[aria-expanded="true"] .hamburger {
+    background: transparent;
+}
+.navbar-toggle[aria-expanded="true"] .hamburger::before {
+    transform: translateY(7px) rotate(45deg);
+}
+.navbar-toggle[aria-expanded="true"] .hamburger::after {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Mobile responsive behavior */
+@media (max-width: 768px) {
+    .navbar-toggle { display: inline-block; }
+    .navbar-menu { display: none; width: 100%; }
+    .navbar-menu.open { display: block; }
+    .navbar-nav { flex-direction: column; gap: 12px; padding: 12px 0; }
+    .navbar-container { align-items: flex-start; gap: 10px; }
+}
+
+/* Hero / welcome -> small enhancement for dashboard pages */
+.welcome-section {
+    background: linear-gradient(90deg, rgba(82,183,136,0.06), rgba(45,106,79,0.02));
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: none;
+}
+.welcome-section h1 { margin-bottom: 8px; }
+.welcome-sub { color: var(--text-light); font-size: 15px; }
+
+/* Footer tweaks */
+.footer-inner { display:flex; justify-content:center; align-items:center; }
+
+/* Flash auto-dismiss subtle fade */
+.flash-messages .alert { transition: opacity 0.35s ease, transform 0.35s ease; }
+.flash-messages .alert.fading { opacity: 0; transform: translateY(-6px); }

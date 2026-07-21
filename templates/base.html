@@ -3,17 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NutriTrack — simple nutrition and food tracking to help meet your goals.">
     <title>{% block title %}NutriTrack{% endblock %}</title>
+
+    <!-- Fonts & Core Styles -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='css/favicon.svg') }}" type="image/svg+xml">
 </head>
-<body>
+<body class="site-body">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
     <!-- Navigation Bar -->
-    <nav class="navbar">
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="navbar-container">
             <div class="navbar-brand">
                 <a href="{% if current_user.is_authenticated %}{{ url_for('dashboard') }}{% else %}{{ url_for('login') }}{% endif %}">NutriTrack</a>
             </div>
-            <div class="navbar-menu">
+
+            <!-- Mobile toggle -->
+            <button class="navbar-toggle" aria-expanded="false" aria-controls="navbar-menu" aria-label="Toggle navigation">
+                <span class="hamburger" aria-hidden="true"></span>
+            </button>
+
+            <div id="navbar-menu" class="navbar-menu">
                 {% if current_user.is_authenticated %}
                     <ul class="navbar-nav">
                         <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
@@ -47,14 +65,19 @@
     {% endwith %}
 
     <!-- Main Content -->
-    <main class="container">
+    <main id="main-content" class="container">
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Footer (optional) -->
+    <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2026 NutriTrack. All rights reserved.</p>
+        <div class="container footer-inner">
+            <p>&copy; 2026 NutriTrack. All rights reserved.</p>
+        </div>
     </footer>
+
+    <!-- Site scripts -->
+    <script src="{{ url_for('static', filename='js/site.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
